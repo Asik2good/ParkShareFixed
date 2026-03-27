@@ -45,7 +45,26 @@ const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
   next();
 };
+// ВРЕМЕННЫЙ РОУТ ДЛЯ СМЕНЫ РОЛИ (УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ)
+app.get('/update-my-role-secret', async (req, res) => {
+    try {
+        const myPhone = '+7 771 105 65 55'; // <--- ВПИШИ СВОЙ НОМЕР ТУТ
+        const newRole = 'admin'; // Роль, которую хочешь получить
 
+        const result = await db.run(
+            'UPDATE users SET role = ?, updatedAt = datetime("now") WHERE phone = ?',
+            [newRole, myPhone]
+        );
+
+        if (result.changes === 0) {
+            return res.send(`Пользователь с номером ${myPhone} не найден в базе.`);
+        }
+
+        res.send(`Успех! Теперь номер ${myPhone} имеет роль: ${newRole}. Перезайди в аккаунт на сайте.`);
+    } catch (err) {
+        res.status(500).send("Ошибка: " + err.message);
+    }
+});
 // ── SMS via Twilio ────────────────────────────────────────────
 async function sendSms(phone, message) {
   if (process.env.SMS_REAL !== 'true') {
