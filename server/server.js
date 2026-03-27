@@ -15,6 +15,9 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*', optionsSuccessStatus: 
 app.use(express.json());
 
 const clientPath = path.join(__dirname, '..', 'client');
+console.log('CLIENT PATH:', clientPath);
+console.log('__dirname:', __dirname);
+
 app.use(express.static(clientPath));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
