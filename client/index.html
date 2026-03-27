@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Almaty ParkShare — Платформа аренды парковок</title>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Commissioner:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- CDN для интерактивной карты -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script> 
+    <style>
+        :root {
+            --primary: #FF6B35;
+            --primary-dark: #E85A2A;
+            --accent: #00D9FF;
+            --dark: #0A0E27;
+            --dark-alt: #141829;
+            --text: #E8EDF2;
+            --text-dim: #8B95A5;
+            --success: #00F5A0;
+            --warning: #FFA500;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Commissioner', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        #addParkingModal .grid-2:first-of-type {
+            display: none;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-alt) 100%);
+            z-index: -1;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 14, 39, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        .logo {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info.active {
+            display: flex;
+        }
+
+        .main-content {
+            padding: 8rem 2rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Commissioner', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--dark);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: var(--dark);
+        }
+
+        .btn-danger {
+            background: rgba(255, 107, 53, 0.8);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: var(--primary);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-dim);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #ffffff !important;
+            font-family: 'Commissioner', sans-serif;
+        }
+
+        .form-group select option {
+            background: #1e2544 !important;
+            color: #ffffff !important;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #a0aec0;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1e2544;
+            padding: 2rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-error {
+            background: rgba(255, 107, 53, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .alert-success {
+            background: rgba(0, 245, 160, 0.2);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-pending {
+            background: rgba(255, 165, 0, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-confirmed {
+            background: rgba(0, 245, 160, 0.2);
+            color: var(--success);
+        }
+
+        .badge-cancelled {
+            background: rgba(255, 107, 53, 0.2);
+            color: var(--primary);
+        }
+
+        .payment-card {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            padding: 2rem;
+            border-radius: 16px;
+            color: white;
+            margin: 1rem 0;
+        }
+
+        .payment-card .card-number {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            letter-spacing: 0.1em;
+            margin: 1rem 0;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table th {
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 4rem 0;
+        }
+
+        .hero h1 {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero .gradient-text {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+
+    <nav>
+        <div class="logo">ParkShare</div>
+        <div class="nav-links">
+            <a id="navLogin" onclick="openAuthModal()">Войти / Регистрация</a>
+            <div class="user-info" id="userInfo">
+                <span id="userName"></span>
+                <button class="btn btn-secondary" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        
+        <section id="homeSection" class="section active">
+            <div class="hero">
+                <h1>Найди парковку<br><span class="gradient-text">за минуту</span></h1>
+                <p style="font-size: 1.2rem; color: var(--text-dim); margin-bottom: 2rem;">
+                    Первая платформа для аренды парковочных мест в Алматы
+                </p>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button class="btn btn-primary" onclick="openAuthModal()">Войти / Регистрация</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="driverDashboard" class="section">
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 2rem;">Личный кабинет водителя</h2>
+            
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-title">Доступные парковки</div>
+                    <div style="font-size: 2rem; color: var(--primary);" id="availableParkings">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Мои бронирования</div>
+                    <div style="font-size: 2rem; color: var(--accent);" id="myBookingsCount">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Активные брони</div>
+                    <div style="font-size: 2rem; color: var(--success);" id="activeBookings">0</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-title">Доступные парковки</div>
+                <div id="parkingsList"></div>
+                <button class="btn btn-primary" onclick="loadParkings()">Обновить список</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Мои бронирования</div>
+                <div id="bookingsList"></div>
+            </div>
+        </section>
+
+        <section id="ownerDashboard" class="section">
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 2rem;">Личный кабинет владельца</h2>
+            
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-title">Мои парковки</div>
+                    <div style="font-size: 2rem; color: var(--primary);" id="myParkingsCount">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Подтвержденные</div>
+                    <div style="font-size: 2rem; color: var(--accent);" id="totalBookings">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Вам заплатят</div>
+                    <div style="font-size: 2rem; color: var(--success);" id="pendingPayments">0</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Мои парковки</div>
+                <button class="btn btn-primary" onclick="openModal('addParking')">Добавить парковку</button>
+                <div id="ownerParkingsList" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Бронирования моих парковок</div>
+                <div id="pendingPaymentsList"></div>
+            </div>
+        </section>
+
+        <section id="adminDashboard" class="section">
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 2rem;">Админ-панель</h2>
+            
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="card-title">Всего пользователей</div>
+                    <div style="font-size: 2rem; color: var(--primary);" id="totalUsers">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Ожидают модерации</div>
+                    <div style="font-size: 2rem; color: var(--warning);" id="pendingParkings">0</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Платежи на проверке</div>
+                    <div style="font-size: 2rem; color: var(--accent);" id="pendingPaymentsAdmin">0</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Парковки на модерации</div>
+                <div id="moderationParkingsList"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Платежи на подтверждение</div>
+                <div id="adminPaymentsList"></div>
+            </div>
+        </section>
+
+    </div>
+
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('auth')">&times;</button>
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 1.5rem;" id="authModalTitle">Вход / Регистрация</h2>
+            <div class="alert alert-error" id="authError"></div>
+            <div class="alert alert-success" id="authSuccess"></div>
+            
+            <div id="authStep1">
+                <form onsubmit="requestCode(event)">
+                    <div class="form-group">
+                        <label>Номер телефона</label>
+                        <input type="tel" id="phoneInput" placeholder="+7 700 123 45 67" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Получить код</button>
+                </form>
+            </div>
+
+            <div id="authStep2" style="display: none;">
+                <form onsubmit="verifyCode(event)">
+                    <div class="form-group">
+                        <label>Код из SMS</label>
+                        <input type="text" id="codeInput" placeholder="123456" required>
+                    </div>
+                    <p style="color: var(--text-dim); font-size: 0.9rem;">Код отправлен на номер <span id="phoneDisplay"></span></p>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Подтвердить</button>
+                    <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;" onclick="resetAuthModal()">Назад</button>
+                </form>
+            </div>
+
+            <div id="authStep3" style="display: none;">
+                <form onsubmit="setUserRole(event)">
+                    <div class="form-group">
+                        <label>Выберите вашу роль</label>
+                        <select id="roleSelect" required>
+                            <option value="driver">Арендовать парковки (водитель)</option>
+                            <option value="owner">Сдавать парковки (владелец)</option>
+                            <option value="both">И то, и другое</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Завершить регистрацию</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="addParkingModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('addParking')">&times;</button>
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 1.5rem;">Добавить парковку</h2>
+            <div class="alert alert-error" id="addParkingError"></div>
+            <div class="alert alert-success" id="addParkingSuccess"></div>
+            <form onsubmit="handleAddParking(event)">
+                <div class="form-group">
+                    <label>Адрес</label>
+                    <input type="text" name="address" placeholder="пр. Аль-Фараби 77/7" required>
+                </div>
+                
+                <div style="margin: 1.5rem 0;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: #cbd5e0; font-weight: 500;">
+                        📍 Укажите местоположение на карте
+                    </label>
+                    <div id="mapPicker" style="height:300px;width:100%;border-radius:8px;overflow:hidden;"></div>
+                    <p style="color: #a0aec0; font-size: 0.9rem; margin-top: 0.5rem;">
+                        💡 Кликните на карте или перетащите маркер в нужное место
+                    </p>
+                </div>
+                
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label>Широта</label>
+                        <input type="number" step="0.000001" name="latitude" value="43.238949" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Долгота</label>
+                        <input type="number" step="0.000001" name="longitude" value="76.889709" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Тип парковки</label>
+                    <select name="type" required>
+                        <option value="covered">Крытая</option>
+                        <option value="open">Открытая</option>
+                        <option value="private">Частная</option>
+                    </select>
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label>Цена за час (₸)</label>
+                        <input type="number" name="pricePerHour" min="100" value="500" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Цена за день (₸)</label>
+                        <input type="number" name="pricePerDay" min="1000" value="3000">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="hasCharging"> Есть зарядка для электрокаров
+                    </label>
+                </div>
+                <div class="form-group" id="chargingTypeGroup" style="display: none;">
+                    <label>Тип зарядки</label>
+                    <select name="chargingType">
+                        <option value="">Не выбрано</option>
+                        <option value="Tesla">Tesla</option>
+                        <option value="Type2">Type 2</option>
+                        <option value="CHAdeMO">CHAdeMO</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="hasSecurity"> Есть охрана
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Код доступа / номер места</label>
+                    <input type="text" name="accessCode" placeholder="1234# или Место 45">
+                </div>
+                <div class="form-group">
+                    <label>Инструкции для водителя</label>
+                    <textarea name="instructions" placeholder="Въезд через главные ворота, паркинг -2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('booking')">&times;</button>
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 1.5rem;">Забронировать парковку</h2>
+            <div class="alert alert-error" id="bookingError"></div>
+            
+            <div id="bookingDetails"></div>
+            
+            <form onsubmit="handleBooking(event)">
+                <input type="hidden" name="parkingId" id="bookingParkingId">
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label>Начало</label>
+                        <input type="datetime-local" name="startTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Конец</label>
+                        <input type="datetime-local" name="endTime" required>
+                    </div>
+                </div>
+                <div class="card" style="background: rgba(0, 245, 160, 0.1);">
+                    <p><strong>Стоимость:</strong> <span id="bookingPrice">—</span></p>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Забронировать</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('payment')">&times;</button>
+            <h2 style="font-family: 'Unbounded', sans-serif; margin-bottom: 1.5rem;">Оплата бронирования</h2>
+            
+            <div class="payment-card">
+                <div style="font-size: 0.9rem; opacity: 0.8;">Переведите на карту</div>
+                <div class="card-number">4400 4303 7547 2245</div>
+                <div style="margin-top: 1rem;">
+                    <div>Kaspi Bank</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <p><strong>Сумма к оплате:</strong> <span id="paymentAmount">—</span> ₸</p>
+                <p style="margin-top: 0.5rem;"><strong>Бронирование ID:</strong> <span id="paymentBookingId">—</span></p>
+            </div>
+
+            <div class="alert" style="background: rgba(255, 165, 0, 0.2); border: 1px solid var(--warning); color: var(--warning); display: block;">
+                ⚠️ После перевода нажмите кнопку ниже. <strong>Администратор проверит платёж и подтвердит бронирование.</strong> После подтверждения вы получите код доступа к парковке.
+            </div>
+
+            <button class="btn btn-success" style="width: 100%;" onclick="confirmPaymentSent()">Я перевёл деньги</button>
+        </div>
+    </div>
+
+    <script>
+        // Relative path works both locally and after deploy
+        const API_URL = '';
+        let currentUser = null;
+        let currentBooking = null;
+        let currentPhone = '';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            document.querySelector('[name="hasCharging"]')?.addEventListener('change', (e) => {
+                document.getElementById('chargingTypeGroup').style.display = e.target.checked ? 'block' : 'none';
+            });
+        });
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (token && user.id) {
+                currentUser = user;
+                showDashboard(user);
+                document.getElementById('navLogin').style.display = 'none';
+                document.getElementById('userInfo').classList.add('active');
+                document.getElementById('userName').textContent = user.fullName || user.phone;
+            }
+        }
+
+        function hideAllSections() {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        }
+
+        function showDashboard(user) {
+            hideAllSections();
+
+            if (user.role === 'admin' || user.email === 'admin@parkshare.kz') {
+                document.getElementById('adminDashboard').classList.add('active');
+                loadAdminData();
+            } else if (user.role === 'driver' || user.role === 'both') {
+                document.getElementById('driverDashboard').classList.add('active');
+                loadDriverData();
+            } else if (user.role === 'owner') {
+                document.getElementById('ownerDashboard').classList.add('active');
+                loadOwnerData();
+            } else {
+                document.getElementById('homeSection').classList.add('active');
+            }
+        }
+
+        function showSection(name) {
+            if (name === 'home') {
+                hideAllSections();
+                document.getElementById('homeSection').classList.add('active');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            location.reload();
+        }
+
+        function openModal(name) {
+            document.getElementById(name + 'Modal').classList.add('active');
+            if (name === 'addParking') {
+                // Wait for modal CSS transition to finish before Leaflet measures size
+                setTimeout(() => {
+                    initMapPicker();
+                }, 350);
+            }
+        }
+
+        function closeModal(name) {
+            document.getElementById(name + 'Modal').classList.remove('active');
+        }
+
+        function openAuthModal() {
+            resetAuthModal();
+            document.getElementById('authModal').classList.add('active');
+        }
+
+        function resetAuthModal() {
+            document.getElementById('authStep1').style.display = 'block';
+            document.getElementById('authStep2').style.display = 'none';
+            document.getElementById('authStep3').style.display = 'none';
+            document.getElementById('authError').classList.remove('active');
+            document.getElementById('authSuccess').classList.remove('active');
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('codeInput').value = '';
+        }
+
+        async function requestCode(e) {
+            e.preventDefault();
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (!phone) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/request-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                currentPhone = phone;
+                document.getElementById('phoneDisplay').textContent = phone;
+                document.getElementById('authStep1').style.display = 'none';
+                document.getElementById('authStep2').style.display = 'block';
+                document.getElementById('authSuccess').textContent = 'Код отправлен (в консоли сервера)';
+                document.getElementById('authSuccess').classList.add('active');
+            } catch (error) {
+                document.getElementById('authError').textContent = error.message;
+                document.getElementById('authError').classList.add('active');
+            }
+        }
+
+        async function verifyCode(e) {
+            e.preventDefault();
+            const code = document.getElementById('codeInput').value.trim();
+            if (!code || !currentPhone) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/verify-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: currentPhone, code })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                localStorage.setItem('token', result.token);
+                localStorage.setItem('user', JSON.stringify(result.user));
+                currentUser = result.user;
+
+                if (!result.user.role) {
+                    document.getElementById('authStep2').style.display = 'none';
+                    document.getElementById('authStep3').style.display = 'block';
+                } else {
+                    closeModal('auth');
+                    showDashboard(result.user);
+                    document.getElementById('navLogin').style.display = 'none';
+                    document.getElementById('userInfo').classList.add('active');
+                    document.getElementById('userName').textContent = result.user.fullName || result.user.phone;
+                }
+            } catch (error) {
+                document.getElementById('authError').textContent = error.message;
+                document.getElementById('authError').classList.add('active');
+            }
+        }
+
+        async function setUserRole(e) {
+            e.preventDefault();
+            const role = document.getElementById('roleSelect').value;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/users/role`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ role })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                const updatedUser = { ...currentUser, role };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                currentUser = updatedUser;
+
+                closeModal('auth');
+                showDashboard(updatedUser);
+                document.getElementById('navLogin').style.display = 'none';
+                document.getElementById('userInfo').classList.add('active');
+                document.getElementById('userName').textContent = updatedUser.fullName || updatedUser.phone;
+            } catch (error) {
+                document.getElementById('authError').textContent = error.message;
+                document.getElementById('authError').classList.add('active');
+            }
+        }
+
+        async function loadDriverData() {
+            await loadParkings();
+            await loadMyBookings();
+        }
+
+        async function loadParkings() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/parkings?lat=43.238949&lng=76.889709&radius=50`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const parkings = await response.json();
+                document.getElementById('availableParkings').textContent = parkings.length;
+
+                const html = parkings.map(p => {
+                    const priceWithCommission = p.pricePerHour ? Math.round(p.pricePerHour * 1.15) : 'Цена не указана';
+                    const escapedAddress = p.address.replace(/"/g, '&quot;'); // <-- экранируем двойные кавычки
+                    return `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3 style="margin-bottom: 0.5rem;">${p.address}</h3>
+                                <p style="color: var(--text-dim); margin-bottom: 0.5rem;">
+                                    ${p.type === 'covered' ? '🏢 Крытая' : '🌤️ Открытая'}
+                                    ${p.hasCharging ? ' • ⚡ Есть зарядка' : ''}
+                                    ${p.hasSecurity ? ' • 🛡️ Охрана' : ''}
+                                </p>
+                                <div style="font-size: 1.5rem; color: var(--primary); margin: 0.5rem 0;">
+                                    ${priceWithCommission}₸/час
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="openBookingModal('${p.id}', '${escapedAddress}', ${p.pricePerHour})">
+                                Забронировать
+                            </button>
+                        </div>
+                    </div>
+                `}).join('');
+
+                document.getElementById('parkingsList').innerHTML = html || '<p style="color: var(--text-dim);">Нет доступных парковок</p>';
+            } catch (error) {
+                console.error('Ошибка загрузки парковок:', error);
+            }
+        }
+
+        async function loadMyBookings() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/bookings/my`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const bookings = await response.json();
+                document.getElementById('myBookingsCount').textContent = bookings.length;
+                
+                const active = bookings.filter(b => b.paymentStatus === 'confirmed' || b.paymentStatus === 'active').length;
+                document.getElementById('activeBookings').textContent = active;
+
+                const html = bookings.map(b => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3>${b.address}</h3>
+                                <p style="color: var(--text-dim); margin: 0.5rem 0;">
+                                    ${new Date(b.startTime).toLocaleString('ru-RU')} — ${new Date(b.endTime).toLocaleString('ru-RU')}
+                                </p>
+                                <div style="margin: 0.5rem 0;">
+                                    <span class="badge badge-${b.paymentStatus === 'pending' ? 'pending' : 'confirmed'}">
+                                        ${b.paymentStatus === 'pending' ? 'Ожидает оплаты' : 'Оплачено'}
+                                    </span>
+                                </div>
+                                ${b.accessCode ? `<p style="margin-top: 0.5rem;">Код доступа: <strong>${b.accessCode}</strong></p>` : ''}
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5rem; color: var(--primary);">${Math.round(b.totalPrice)}₸</div>
+                                ${b.paymentStatus === 'pending' ? 
+                                    `<button class="btn btn-success" onclick="openPaymentModal('${b.id}', ${b.totalPrice})">Оплатить</button>` : 
+                                    ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('bookingsList').innerHTML = html || '<p style="color: var(--text-dim);">У вас пока нет бронирований</p>';
+            } catch (error) {
+                console.error('Ошибка загрузки бронирований:', error);
+            }
+        }
+
+        async function loadOwnerData() {
+            try {
+                const token = localStorage.getItem('token');
+                
+                const response = await fetch(`${API_URL}/api/my-parkings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const myParkings = await response.json();
+                
+                document.getElementById('myParkingsCount').textContent = myParkings.length;
+
+                const html = myParkings.map(p => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>${p.address}</h3>
+                                <p style="color: var(--text-dim);">${Math.round(p.pricePerHour)}₸/час</p>
+                                <span class="badge badge-${p.status === 'approved' ? 'confirmed' : 'pending'}">
+                                    ${p.status === 'approved' ? 'Одобрено' : 'На модерации'}
+                                </span>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteParking(${p.id})">Удалить</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('ownerParkingsList').innerHTML = html || '<p style="color: var(--text-dim); margin-top: 1rem;">Вы еще не добавили парковки</p>';
+
+                await loadOwnerBookings();
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+            }
+        }
+
+        async function deleteParking(parkingId) {
+            if (!confirm('Вы уверены, что хотите удалить эту парковку? Все связанные бронирования также будут удалены.')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/parkings/${parkingId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error);
+                }
+
+                alert('Парковка удалена');
+                loadOwnerData(); // перезагружаем список
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function loadOwnerBookings() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/bookings/owner`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const bookings = await response.json();
+                
+                document.getElementById('totalBookings').textContent = bookings.length;
+                
+                const confirmed = bookings.filter(b => b.paymentStatus === 'completed').length;
+                document.getElementById('pendingPayments').textContent = confirmed;
+
+                const html = bookings.map(b => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3>${b.address}</h3>
+                                <p style="color: var(--text-dim); margin: 0.5rem 0;">
+                                    ${new Date(b.startTime).toLocaleString('ru-RU')} — ${new Date(b.endTime).toLocaleString('ru-RU')}
+                                </p>
+                                <div style="margin: 0.5rem 0;">
+                                    <span class="badge badge-${b.paymentStatus === 'completed' ? 'confirmed' : 'pending'}">
+                                        ${b.paymentStatus === 'completed' ? 'Оплачено - Ожидайте перевод' : 'Ожидает подтверждения админом'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.5rem; color: var(--primary);">${Math.round(b.totalPrice)}₸</div>
+                                ${b.paymentStatus === 'completed' ? '<p style="color: var(--success); margin-top: 0.5rem;">💰 Вам переведут деньги</p>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('pendingPaymentsList').innerHTML = html || '<p style="color: var(--text-dim);">Нет бронирований</p>';
+            } catch (error) {
+                console.error('Ошибка загрузки бронирований:', error);
+            }
+        }
+
+        async function loadAdminData() {
+            try {
+                const token = localStorage.getItem('token');
+                
+                const parkingsResponse = await fetch(`${API_URL}/api/parkings?lat=43.238949&lng=76.889709&radius=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const allParkings = await parkingsResponse.json();
+                const pending = allParkings.filter(p => p.status === 'pending');
+                
+                document.getElementById('pendingParkings').textContent = pending.length;
+
+                const parkingsHtml = pending.map(p => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h3>${p.address}</h3>
+                                <p style="color: var(--text-dim);">${Math.round(p.pricePerHour)}₸/час • ${p.type === 'covered' ? 'Крытая' : 'Открытая'}</p>
+                                ${p.hasCharging ? '<p style="color: var(--success);">⚡ Есть зарядка</p>' : ''}
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="approveParking('${p.id}')">Одобрить</button>
+                                <button class="btn btn-secondary" onclick="rejectParking('${p.id}')" style="margin-top: 0.5rem;">Отклонить</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('moderationParkingsList').innerHTML = parkingsHtml || '<p style="color: var(--text-dim);">Нет парковок на модерации</p>';
+
+                const bookingsResponse = await fetch(`${API_URL}/api/bookings/all`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const allBookings = await bookingsResponse.json();
+                const pendingPayments = allBookings.filter(b => b.paymentStatus === 'held');
+                
+                document.getElementById('pendingPaymentsAdmin').textContent = pendingPayments.length;
+
+                const paymentsHtml = pendingPayments.map(b => {
+                    const ownerAmount = Math.floor(b.totalPrice / 1.15);
+                    const commission = b.totalPrice - ownerAmount;
+                    
+                    return `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>${b.address}</h3>
+                                <p style="color: var(--text-dim);">Водитель заплатил: <strong>${Math.round(b.totalPrice)}₸</strong></p>
+                                <p style="color: var(--text-dim); font-size: 0.9rem;">Бронирование: ${b.id}</p>
+                                ${b.ownerPhone ? `<p style="color: var(--text-dim);">Владелец: ${b.ownerPhone}</p>` : ''}
+                                <div style="margin-top: 1rem; padding: 1rem; background: rgba(0, 245, 160, 0.1); border-radius: 8px;">
+                                    <p style="color: var(--success); font-size: 1.1rem; margin-bottom: 0.5rem;">
+                                        💰 Переведите владельцу: <strong>${Math.round(ownerAmount)}₸</strong>
+                                    </p>
+                                    <p style="color: var(--text-dim); font-size: 0.9rem;">
+                                        Ваша комиссия: ${Math.round(commission)}₸ (15%)
+                                    </p>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="confirmPayment('${b.id}')">Подтвердить оплату</button>
+                                <button class="btn btn-secondary" onclick="rejectPayment('${b.id}')" style="margin-top: 0.5rem;">Отклонить</button>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+
+                document.getElementById('adminPaymentsList').innerHTML = paymentsHtml || '<p style="color: var(--text-dim);">Нет платежей на подтверждение</p>';
+
+            } catch (error) {
+                console.error('Ошибка загрузки админ-данных:', error);
+            }
+        }
+
+        function openBookingModal(parkingId, address, pricePerHour) {
+            const priceWithCommission = Math.round(pricePerHour * 1.15);
+            
+            document.getElementById('bookingParkingId').value = parkingId;
+            document.getElementById('bookingDetails').innerHTML = `
+                <div class="card">
+                    <h3>${address}</h3>
+                    <p style="color: var(--primary); font-size: 1.5rem;">${priceWithCommission}₸/час</p>
+                </div>
+            `;
+            
+            window.currentParkingPrice = priceWithCommission;
+            
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const nowStr = now.toISOString().slice(0, 16);
+            document.querySelector('[name="startTime"]').min = nowStr;
+            document.querySelector('[name="endTime"]').min = nowStr;
+            
+            const startInput = document.querySelector('[name="startTime"]');
+            const endInput = document.querySelector('[name="endTime"]');
+            
+            function updatePrice() {
+                if (startInput.value && endInput.value) {
+                    const start = new Date(startInput.value);
+                    const end = new Date(endInput.value);
+                    const hours = Math.ceil((end - start) / (1000 * 60 * 60));
+                    if (hours > 0) {
+                        const totalPrice = hours * priceWithCommission;
+                        
+                        document.getElementById('bookingPrice').innerHTML = `
+                            <div style="font-size: 1.5rem; color: var(--primary);">${Math.round(totalPrice)}₸</div>
+                        `;
+                    }
+                }
+            }
+            
+            startInput.addEventListener('change', updatePrice);
+            endInput.addEventListener('change', updatePrice);
+            
+            openModal('booking');
+        }
+
+        async function handleBooking(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                closeModal('booking');
+                
+                currentBooking = result.booking;
+                openPaymentModal(result.booking.id, result.booking.totalPrice);
+            } catch (error) {
+                const errorDiv = document.getElementById('bookingError');
+                errorDiv.textContent = error.message;
+                errorDiv.classList.add('active');
+            }
+        }
+
+        function openPaymentModal(bookingId, amount) {
+            document.getElementById('paymentBookingId').textContent = bookingId;
+            document.getElementById('paymentAmount').textContent = Math.round(amount);
+            currentBooking = { id: bookingId, totalPrice: amount };
+            openModal('payment');
+        }
+
+        async function confirmPaymentSent() {
+            if (!currentBooking) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/payments/kaspi`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        bookingId: currentBooking.id,
+                        amount: currentBooking.totalPrice
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                alert('✅ Информация о платеже отправлена! Ожидайте подтверждения администратора.');
+                closeModal('payment');
+                loadMyBookings();
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function confirmPayment(bookingId) {
+            if (!confirm('Подтвердить получение платежа от клиента? Деньги будут переведены владельцу.')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/bookings/${bookingId}/confirm-payment`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    alert('✅ Платёж подтверждён! Водитель получил доступ к парковке.');
+                    loadAdminData();
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function rejectPayment(bookingId) {
+            if (!confirm('Отклонить платёж? Бронирование будет отменено.')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/bookings/${bookingId}/reject-payment`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    alert('❌ Платёж отклонён. Бронирование отменено.');
+                    loadAdminData();
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function approveParking(parkingId) {
+            if (!confirm('Одобрить эту парковку?')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/parkings/${parkingId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    alert('✅ Парковка одобрена!');
+                    loadAdminData();
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function rejectParking(parkingId) {
+            if (!confirm('Отклонить эту парковку?')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/parkings/${parkingId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    alert('❌ Парковка отклонена');
+                    loadAdminData();
+                }
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            }
+        }
+
+        async function handleAddParking(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            data.hasCharging = formData.get('hasCharging') === 'on';
+            data.hasSecurity = formData.get('hasSecurity') === 'on';
+            data.latitude = parseFloat(data.latitude);
+            data.longitude = parseFloat(data.longitude);
+            data.pricePerHour = parseFloat(data.pricePerHour);
+            data.pricePerDay = data.pricePerDay ? parseFloat(data.pricePerDay) : null;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/parkings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+
+                const successDiv = document.getElementById('addParkingSuccess');
+                successDiv.textContent = 'Парковка добавлена! Ожидает модерации.';
+                successDiv.classList.add('active');
+
+                e.target.reset();
+                setTimeout(() => {
+                    closeModal('addParking');
+                    loadOwnerData();
+                }, 2000);
+            } catch (error) {
+                const errorDiv = document.getElementById('addParkingError');
+                errorDiv.textContent = error.message;
+                errorDiv.classList.add('active');
+            }
+        }
+
+        let map, marker;
+        function initMapPicker() {
+            const container = document.getElementById('mapPicker');
+            if (!container) return;
+
+            if (map) { map.remove(); map = null; marker = null; }
+
+            const almatyCenter = [43.238949, 76.889709];
+            map = L.map('mapPicker').setView(almatyCenter, 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            marker = L.marker(almatyCenter, { draggable: true, autoPan: true }).addTo(map);
+
+            marker.on('dragend', function() {
+                const pos = marker.getLatLng();
+                updateCoordinates(pos.lat, pos.lng);
+            });
+
+            map.on('click', function(e) {
+                marker.setLatLng(e.latlng);
+                updateCoordinates(e.latlng.lat, e.latlng.lng);
+            });
+
+            const currentLat = parseFloat(document.querySelector('[name="latitude"]').value);
+            const currentLng = parseFloat(document.querySelector('[name="longitude"]').value);
+            if (currentLat && currentLng) {
+                marker.setLatLng([currentLat, currentLng]);
+                map.setView([currentLat, currentLng], 14);
+            }
+
+            // Force tile recalculation after modal finishes appearing
+            setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+        }
+        
+        function updateCoordinates(lat, lng) {
+            document.querySelector('[name="latitude"]').value = lat.toFixed(6);
+            document.querySelector('[name="longitude"]').value = lng.toFixed(6);
+        }
+    </script>
+</body>
+</html>

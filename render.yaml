@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: parkshare
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true          # Render generates a random value automatically
+      - key: SMS_REAL
+        value: "true"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false                  # You fill this in the Render dashboard
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+    disk:
+      name: parkshare-data
+      mountPath: /opt/render/project/src/server
+      sizeGB: 1                      # Stores SQLite database and uploads
